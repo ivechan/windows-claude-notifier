@@ -1,5 +1,7 @@
 # Windows Notification Server
 
+**English** | [中文文档](README_zh.md)
+
 A minimalist background server built with Flask and `win11toast` that accepts HTTP POST requests to trigger native Windows Toast notifications (with customizable sounds).
 
 ## Features

@@ -83,6 +83,8 @@ if __name__ == '__main__':
     # 初始化并启动系统托盘图标，阻塞主线程
     icon_image = create_image()
     menu = pystray.Menu(pystray.MenuItem('退出 (Exit)', on_exit))
-    icon = pystray.Icon("WindowsNotifier", icon_image, "Windows 通知服务", menu)
+    # 悬停时显示标题和监听地址
+    hover_text = "Windows 通知服务 (http://127.0.0.1:5000)"
+    icon = pystray.Icon("WindowsNotifier", icon_image, hover_text, menu)
     
     icon.run()
