@@ -1,0 +1,4 @@
+flask==3.0.3
+win11toast==0.36.3
+pystray==0.19.5
+Pillow==12.1.1
