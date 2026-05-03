@@ -2,6 +2,7 @@ import sys
 import os
 import platform
 import subprocess
+import ipaddress
 from flask import Flask, request, jsonify
 import logging
 import threading
@@ -20,6 +21,12 @@ if IS_WINDOWS:
 app = Flask(__name__)
 log = logging.getLogger('werkzeug')
 log.setLevel(logging.ERROR)
+
+@app.before_request
+def restrict_to_lan():
+    addr = ipaddress.ip_address(request.remote_addr)
+    if not (addr.is_private or addr.is_loopback):
+        return jsonify({"status": "error", "message": "仅允许局域网连接"}), 403
 
 SOUND_MAP = {
     'default': 'ms-winsoundevent:Notification.Default',
