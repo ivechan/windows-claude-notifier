@@ -66,7 +66,7 @@ def notify_endpoint():
         return jsonify({"status": "error", "message": str(e)}), 500
 
 def run_flask():
-    app.run(host='127.0.0.1', port=5000)
+    app.run(host='0.0.0.0', port=5000)
 
 def create_image():
     image = Image.new('RGB', (64, 64), color=(0, 120, 215))
@@ -84,7 +84,7 @@ if __name__ == '__main__':
 
     icon_image = create_image()
     menu = pystray.Menu(pystray.MenuItem('退出 (Exit)', on_exit))
-    app_name = "Claude Code Notifier"
+    app_name = "Claude Code Notifier (0.0.0.0:5000)"
     icon = pystray.Icon("ClaudeCodeNotifier", icon_image, app_name, menu)
 
     icon.run()
