@@ -17,6 +17,9 @@ build/
 dist/
 *.egg-info/
 
+# Logs
+*.log
+
 # VS Code / IDE
 .vscode/
 .idea/
