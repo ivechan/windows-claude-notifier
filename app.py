@@ -2,6 +2,7 @@ import sys
 import os
 import platform
 import subprocess
+import shutil
 import ipaddress
 from flask import Flask, request, jsonify
 import logging
@@ -28,7 +29,7 @@ def restrict_to_lan():
     if not (addr.is_private or addr.is_loopback):
         return jsonify({"status": "error", "message": "仅允许局域网连接"}), 403
 
-SOUND_MAP = {
+WINDOWS_SOUND_MAP = {
     'default': 'ms-winsoundevent:Notification.Default',
     'mail': 'ms-winsoundevent:Notification.Mail',
     'sms': 'ms-winsoundevent:Notification.SMS',
@@ -40,15 +41,34 @@ SOUND_MAP = {
     'call2': 'ms-winsoundevent:Notification.Looping.Call2',
 }
 
-def show_toast_async(title, body, audio_src='default'):
+LINUX_SOUND_MAP = {
+    'default': 'message',
+    'mail': 'message-new-instant',
+    'sms': 'message-new-instant',
+    'im': 'message-new-instant',
+    'reminder': 'alarm-clock-elapsed',
+    'alarm': 'phone-incoming-call',
+    'alarm2': 'phone-incoming-call',
+    'call': 'phone-incoming-call',
+    'call2': 'phone-incoming-call',
+}
+
+def show_toast_async(title, body, sound_key='default'):
     try:
         if IS_WINDOWS:
+            audio_src = WINDOWS_SOUND_MAP.get(sound_key, WINDOWS_SOUND_MAP['default'])
             toast(title, body, audio={'src': audio_src}, app_id='Claude Code')
         else:
             subprocess.run(
                 ['notify-send', '--app-name=Claude Code', title, body],
                 check=True, timeout=5
             )
+            event_id = LINUX_SOUND_MAP.get(sound_key)
+            if event_id and shutil.which('canberra-gtk-play'):
+                subprocess.run(
+                    ['canberra-gtk-play', '--id', event_id],
+                    timeout=10
+                )
     except Exception as e:
         print(f"通知发送失败: {e}")
 
@@ -63,9 +83,7 @@ def notify_endpoint():
         body = data.get('body', '')
         sound_key = data.get('sound', 'default')
 
-        audio_src = SOUND_MAP.get(sound_key, SOUND_MAP['default'])
-
-        threading.Thread(target=show_toast_async, args=(title, body, audio_src), daemon=True).start()
+        threading.Thread(target=show_toast_async, args=(title, body, sound_key), daemon=True).start()
 
         print(f"[{title}] {body}")
         return jsonify({"status": "success", "message": "通知请求已接收"})
