@@ -1,25 +1,26 @@
 import sys
 import os
-
-# 保护 Windows pythonw 环境下标准输入输出流为 None 导致的异常
-if sys.stdout is None:
-    sys.stdout = open(os.devnull, 'w')
-if sys.stderr is None:
-    sys.stderr = open(os.devnull, 'w')
-
+import platform
+import subprocess
 from flask import Flask, request, jsonify
-from win11toast import toast
 import logging
 import threading
 import pystray
 from PIL import Image, ImageDraw
 
+IS_WINDOWS = platform.system() == 'Windows'
+
+if IS_WINDOWS:
+    if sys.stdout is None:
+        sys.stdout = open(os.devnull, 'w')
+    if sys.stderr is None:
+        sys.stderr = open(os.devnull, 'w')
+    from win11toast import toast
+
 app = Flask(__name__)
-# 隐藏 Flask 默认的日志，保持控制台清爽
 log = logging.getLogger('werkzeug')
 log.setLevel(logging.ERROR)
 
-# 常见的 Windows 系统提示音
 SOUND_MAP = {
     'default': 'ms-winsoundevent:Notification.Default',
     'mail': 'ms-winsoundevent:Notification.Mail',
@@ -32,12 +33,17 @@ SOUND_MAP = {
     'call2': 'ms-winsoundevent:Notification.Looping.Call2',
 }
 
-def show_toast_async(title, body, audio_src):
+def show_toast_async(title, body, audio_src='default'):
     try:
-        # app_id 定义了操作中心中显示的应用名称
-        toast(title, body, audio={'src': audio_src}, app_id='Claude Code')
+        if IS_WINDOWS:
+            toast(title, body, audio={'src': audio_src}, app_id='Claude Code')
+        else:
+            subprocess.run(
+                ['notify-send', '--app-name=Claude Code', title, body],
+                check=True, timeout=5
+            )
     except Exception as e:
-        print(f"弹窗失败: {e}")
+        print(f"通知发送失败: {e}")
 
 @app.route('/notify', methods=['POST'])
 def notify_endpoint():
@@ -45,18 +51,16 @@ def notify_endpoint():
         data = request.json
         if not data:
             return jsonify({"status": "error", "message": "无效的 JSON 数据"}), 400
-        
+
         title = data.get('title', '新通知')
         body = data.get('body', '')
         sound_key = data.get('sound', 'default')
-        
-        # 匹配声音参数
+
         audio_src = SOUND_MAP.get(sound_key, SOUND_MAP['default'])
-        
-        # 后台线程发送通知，防止阻塞 HTTP 请求响应
+
         threading.Thread(target=show_toast_async, args=(title, body, audio_src), daemon=True).start()
-        
-        print(f"[{title}] {body} (Sound: {sound_key})")
+
+        print(f"[{title}] {body}")
         return jsonify({"status": "success", "message": "通知请求已接收"})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
@@ -65,7 +69,6 @@ def run_flask():
     app.run(host='127.0.0.1', port=5000)
 
 def create_image():
-    # 生成一个简单的系统托盘图标 (蓝底白色矩形)
     image = Image.new('RGB', (64, 64), color=(0, 120, 215))
     d = ImageDraw.Draw(image)
     d.rectangle([16, 16, 48, 48], fill=(255, 255, 255))
@@ -76,15 +79,12 @@ def on_exit(icon, item):
     os._exit(0)
 
 if __name__ == '__main__':
-    # 启动 Flask 的后台守护线程
     flask_thread = threading.Thread(target=run_flask, daemon=True)
     flask_thread.start()
 
-    # 初始化并启动系统托盘图标，阻塞主线程
     icon_image = create_image()
     menu = pystray.Menu(pystray.MenuItem('退出 (Exit)', on_exit))
-    # 悬停时显示标题和监听地址
-    hover_text = "Windows 通知服务 (http://127.0.0.1:5000)"
-    icon = pystray.Icon("WindowsNotifier", icon_image, hover_text, menu)
-    
+    app_name = "Claude Code Notifier"
+    icon = pystray.Icon("ClaudeCodeNotifier", icon_image, app_name, menu)
+
     icon.run()
